@@ -1,0 +1,20 @@
+{
+    "name": "pagespeed",
+    "version": "0.0.1",
+    "main": "index.js",
+    "author": {
+        "name": "Eric"
+    },
+    "repository": "https://github.com/Mithrilhall/pagespeed",
+    "dependencies": {
+        "async": "^2.6.0",
+        "chalk": "^2.3.2",
+        "config": "^1.30.0",
+        "lodash": "^4.17.5",
+        "moment": "^2.21.0",
+        "mongoose": "^5.0.11",
+        "node-fetch": "^2.1.1",
+        "node-notifier": "^5.2.1",
+        "ora": "^2.0.0"
+    }
+}

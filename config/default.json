@@ -1,0 +1,14 @@
+{
+    "application": {
+        "name": "pagespeed"
+    },
+    "pageSpeed": {
+        "apiUrl": "https://www.googleapis.com/pagespeedonline/v4/runPagespeed?url=",
+        "key": ""
+    },
+    "data": {
+        "save": true,
+        "connection": "mongodb://localhost:27017/page_speed"
+    },
+    "urls": ["https://www.somepagetoscan.com/"]
+}
