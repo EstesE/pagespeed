@@ -63,7 +63,8 @@ const getRawData = (opts, callback) => {
         key: opts.apiKey
     };
 
-    fetch(`${config.pageSpeed.apiUrl}${queryParams.url}&strategy=${queryParams.strategy}&key=${config.pageSpeed.key}`)
+    let myUrl = encodeURI(queryParams.url);
+    fetch(`${config.pageSpeed.apiUrl}${myUrl}&strategy=${queryParams.strategy}&key=${config.pageSpeed.key}`)
         .then(res => res.text())
         .then(b => {
             let body = JSON.parse(b);
@@ -79,8 +80,7 @@ const getRawData = (opts, callback) => {
                 return callback(new Error(`Status code ${response.statusCode} not OK`));
             }
 
-            b.strategy = queryParams.strategy;
-            return callback(null, { strategy: queryParams.strategy, data: b });
+            return callback(null, { queryParams: queryParams, data: b });
         })
         .catch(err => {
             notifier.notify({
@@ -209,50 +209,53 @@ const _mapObject = opts => {
 
 let count = 0;
 let q = async.queue((d, callback) => {
-    getRawData({
-        url: d.url,
-        strategy: d.strategy,
-        apiKey: config.pageSpeed.key
-    }, (error, d) => {
-        if (error) {
-            spinner.fail(error);
-            spinner.start();
-            callback();
-        }
+    let urL = d.url;
+    setTimeout(function () {
+        getRawData({
+            url: d.url,
+            strategy: d.strategy,
+            apiKey: config.pageSpeed.key
+        }, (error, d) => {
+            if (error) {
+                spinner.fail(error);
+                spinner.start();
+                callback();
+            }
 
-        let processedData = processRawData(JSON.parse(d.data));
-        let speed = processedData.pageSpeed;
-        let id = JSON.parse(d.data).id;
-        let strategy = d.strategy;
-        let data = JSON.parse(d.data);
+            let processedData = processRawData(JSON.parse(d.data));
+            let speed = processedData.pageSpeed;
+            let id = d.queryParams.url;
+            let strategy = d.queryParams.strategy;
+            let data = JSON.parse(d.data);
 
-        if (config.data.save === true) {
-            const page_speed = new PageSpeed({
-                path: data.id,
-                strategy: strategy,
-                speed: data.ruleGroups.SPEED.score,
-                date: new Date(),
-                stats: processedData.stats,
-                rulesInfo: processedData.rulesInfo
-            });
-            
-            page_speed.save()
-                .then(() => {
-                    spinner.succeed(chalk.magenta(data.id) + ' (' + strategy + ') - ' + chalk.green(speed));
-                    spinner.text = percentComplete(count = count + 1, urls.length * 2) + `% of ${urls.length * 2} complete`;
-                    spinner.start();
-                    callback();
-                }, err => {
-                    data.spinner.fail(err);
-                    data.spinner.start();
+            if (config.data.save === true) {
+                const page_speed = new PageSpeed({
+                    path: data.id,
+                    strategy: strategy,
+                    speed: data.ruleGroups.SPEED.score,
+                    date: new Date(),
+                    stats: processedData.stats,
+                    rulesInfo: processedData.rulesInfo
                 });
-        } else {
-            spinner.succeed(chalk.magenta(data.id) + ' (' + strategy + ') - ' + chalk.green(speed));
-            spinner.text = percentComplete(count = count + 1, urls.length * 2) + `% of ${urls.length * 2} complete`;
-            spinner.start();
-            callback();
-        }
-    });
+
+                page_speed.save()
+                    .then(() => {
+                        spinner.succeed(chalk.magenta(id) + ' (' + strategy + ') - ' + chalk.green(speed));
+                        spinner.text = percentComplete(count = count + 1, urls.length * 2) + `% of ${urls.length * 2} complete`;
+                        spinner.start();
+                        callback();
+                    }, err => {
+                        data.spinner.fail(err);
+                        data.spinner.start();
+                    });
+            } else {
+                spinner.succeed(chalk.magenta(id) + ' (' + strategy + ') - ' + chalk.green(speed));
+                spinner.text = percentComplete(count = count + 1, urls.length * 2) + `% of ${urls.length * 2} complete`;
+                spinner.start();
+                callback();
+            }
+        });
+    }, 1000);
 }, 1);
 
 q.drain = () => {
