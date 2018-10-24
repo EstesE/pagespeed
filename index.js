@@ -48,7 +48,7 @@ const percentComplete = (a, b) => {
     return d.toFixed(2);
 }
 
-const getRawData = (opts, callback) => {
+const getRawData = async (opts, callback) => {
     if (check.isEmpty(opts)) {
         return callback(new Error('dataAccess.getRawData: opts is not defined'), null);
     }
@@ -64,7 +64,7 @@ const getRawData = (opts, callback) => {
     };
 
     let myUrl = encodeURI(queryParams.url);
-    fetch(`${config.pageSpeed.apiUrl}${myUrl}&strategy=${queryParams.strategy}&key=${config.pageSpeed.key}`)
+    await fetch(`${config.pageSpeed.apiUrl}${myUrl}&strategy=${queryParams.strategy}&key=${config.pageSpeed.key}`)
         .then(res => res.text())
         .then(b => {
             let body = JSON.parse(b);
@@ -210,53 +210,51 @@ const _mapObject = opts => {
 let count = 0;
 let q = async.queue((d, callback) => {
     let urL = d.url;
-    setTimeout(function () {
-        getRawData({
-            url: d.url,
-            strategy: d.strategy,
-            apiKey: config.pageSpeed.key
-        }, (error, d) => {
-            if (error) {
-                spinner.fail(error);
-                spinner.start();
-                callback();
-            }
+    getRawData({
+        url: d.url,
+        strategy: d.strategy,
+        apiKey: config.pageSpeed.key
+    }, (error, d) => {
+        if (error) {
+            spinner.fail(error);
+            spinner.start();
+            callback();
+        }
 
-            let processedData = processRawData(JSON.parse(d.data));
-            let speed = processedData.pageSpeed;
-            let id = d.queryParams.url;
-            let strategy = d.queryParams.strategy;
-            let data = JSON.parse(d.data);
+        let processedData = processRawData(JSON.parse(d.data));
+        let speed = processedData.pageSpeed;
+        let id = d.queryParams.url;
+        let strategy = d.queryParams.strategy;
+        let data = JSON.parse(d.data);
 
-            if (config.data.save === true) {
-                const page_speed = new PageSpeed({
-                    path: data.id,
-                    strategy: strategy,
-                    speed: data.ruleGroups.SPEED.score,
-                    date: new Date(),
-                    stats: processedData.stats,
-                    rulesInfo: processedData.rulesInfo
+        if (config.data.save === true) {
+            const page_speed = new PageSpeed({
+                path: data.id,
+                strategy: strategy,
+                speed: data.ruleGroups.SPEED.score,
+                date: new Date(),
+                stats: processedData.stats,
+                rulesInfo: processedData.rulesInfo
+            });
+
+            page_speed.save()
+                .then(() => {
+                    spinner.succeed(chalk.magenta(id) + ' (' + strategy + ') - ' + chalk.green(speed));
+                    spinner.text = percentComplete(count = count + 1, urls.length * 2) + `% of ${urls.length * 2} complete`;
+                    spinner.start();
+                    callback();
+                }, err => {
+                    data.spinner.fail(err);
+                    data.spinner.start();
                 });
-
-                page_speed.save()
-                    .then(() => {
-                        spinner.succeed(chalk.magenta(id) + ' (' + strategy + ') - ' + chalk.green(speed));
-                        spinner.text = percentComplete(count = count + 1, urls.length * 2) + `% of ${urls.length * 2} complete`;
-                        spinner.start();
-                        callback();
-                    }, err => {
-                        data.spinner.fail(err);
-                        data.spinner.start();
-                    });
-            } else {
-                spinner.succeed(chalk.magenta(id) + ' (' + strategy + ') - ' + chalk.green(speed));
-                spinner.text = percentComplete(count = count + 1, urls.length * 2) + `% of ${urls.length * 2} complete`;
-                spinner.start();
-                callback();
-            }
-        });
-    }, 1000);
-}, 1);
+        } else {
+            spinner.succeed(chalk.magenta(id) + ' (' + strategy + ') - ' + chalk.green(speed));
+            spinner.text = percentComplete(count = count + 1, urls.length * 2) + `% of ${urls.length * 2} complete`;
+            spinner.start();
+            callback();
+        }
+    });
+}, 2);
 
 q.drain = () => {
     spinner.succeed();
